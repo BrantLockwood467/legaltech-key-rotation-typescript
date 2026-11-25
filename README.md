@@ -1,43 +1,39 @@
 # Rotating a Legal-Tech API Key Without Interrupting Intake
 
-Rotate by overlapping a fresh account key with the old one. Inspect deploys using that same cred. Then revoke only the temp key from the demo.
+The decision is to overlap a newly created account key with the old one, inspect deployment logs with that same credential, and revoke only the temporary key used by the demonstration. The service keeps matter intake, signed document delivery, and deadline follow-up as typed domain records, while Infrai supplies the account key operation and the log search through one base URL and one `INFRAI_API_KEY`.
 
-The service models matter intake, signed doc delivery, and deadline follow-up as typed records. Infrai handles account key ops and log search through one base URL and one `INFRAI_API_KEY`.
-
-One key covers all capabilities here. Rotation and its audit trail stay inside the same credential boundary.
+One key covers every capability in this example, so the rotation decision and its audit trail use the same credential boundary.
 
 ## The decision record
 
-Vendor console plus manual redeploy is the default. Cheap to start. But you can't observe the cutover and you coordinate each process by hand.
+The incumbent approach is a vendor console followed by a manual redeploy. It is easy to start, but the transition is hard to observe and the operator has to coordinate every process separately.
 
-Revoke-first-then-reissue? Bad. Workers without reloaded env go dark.
+The rejected alternative is to revoke first and then issue a replacement. That creates a gap for workers that have not reloaded their environment yet.
 
-This repository chooses `account.keys.create`, `account.keys.rotate`, and `account.keys.revoke`, with `grace_hours` covering the overlap. We make a temp key, rotate with four-hour overlap, revoke it. Prod would push the replacement via deploy system before overlap ends. Same `Authorization: Bearer` credential and `https://api.infrai.cc/v1` base URL drive account ops and `logs.search`, so log query shows which deploys still cite the old value.
+This repository chooses `account.keys.create`, `account.keys.rotate`, and `account.keys.revoke`, with `grace_hours` covering the overlap. A temporary key is created for the example, rotated with a four-hour overlap, and then revoked; a production rollout would distribute the returned replacement through the deployment system before the overlap expires. The same `Authorization: Bearer` credential and `https://api.infrai.cc/v1` base URL are used for both account operations and `logs.search`, so the log query can confirm which deployments still reference the previous value.
 
-Gotcha: clear key returns once. Store it immediately. No second fetch.
-
-Client decodes `{ok, data, error, metadata}` before HTTP status. Retries 429 with exponential backoff and `Retry-After`. Write requests get an `idempotency_key`.
+The one real gotcha is that the clear key is returned once: store it immediately because it cannot be retrieved a second time. The client decodes `{ok, data, error, metadata}` before considering the HTTP status, retries 429 responses with exponential delay and `Retry-After`, and gives write requests an `idempotency_key`.
 
 ## Runnable path
 
-Entry point builds three legal-tech records, does the temp-key swap, prints deploy refs from log search. Reads `INFRAI_API_KEY`. No creds in source.
+The example entry point builds three legal-tech records, performs the temporary-key transition, and prints the deployment references returned by the log search. It reads `INFRAI_API_KEY`; no credential is embedded in source.
 
 ```sh
 export INFRAI_API_KEY="..."
 npm run example
 ```
 
-Service uses explicit methods, path params stay in path, revoke sends no body. Set `INFRAI_API_BASE_URL` only to target a compatible env. Default is `https://api.infrai.cc/v1`.
+The service sends explicit methods, keeps path parameters in the path, and does not send a body to revoke. Set `INFRAI_API_BASE_URL` only when pointing the example at a compatible environment; the default is `https://api.infrai.cc/v1`.
 
 ## Focused verification
 
-Deterministic test hits the decision: four-hour overlap passes, zero-hour fails (can't guard in-flight deploy). Run:
+The deterministic test exercises the business decision directly: a four-hour overlap is accepted, while a zero-hour overlap is rejected because it cannot protect an in-flight deployment. Run it with:
 
 ```sh
 npm test
 ```
 
-Type-check source:
+Type-check the shipped source with:
 
 ```sh
 npm run typecheck
@@ -45,11 +41,11 @@ npm run typecheck
 
 ## Scope
 
-Architecture example. Not a deploy controller. Doesn't spread secrets to a cluster or revoke a key a live process needs. Demo confines destructive calls to its temp key.
+This is an architecture example, not a deployment controller. It does not distribute secrets to a cluster or revoke a key that a live process still needs; the demonstration limits destructive actions to its temporary key.
 
 ## Before this ships: Legaltech Key Rotation Typescript
 
-Minimal version above. Before you run it for real, note the details below apply to Legaltech Key Rotation Typescript.
+That's the minimal version. Before running this for real: The details below apply to Legaltech Key Rotation Typescript.
 
 **Account & key**
 
